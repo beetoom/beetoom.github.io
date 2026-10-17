@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>JPY ⇄ UAH • Visa & Monobank</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono для цифр -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Убираем стандартные стрелки у числовых полей и предотвращаем авто-зум на смартфонах */
+    input[type="text"],
+    input[type="number"] {
+      font-size: 1.5rem;
+      -moz-appearance: textfield;
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    /* Плавное нажатие на мобильных экранах */
+    .tap-card {
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .tap-card:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased selection:bg-indigo-500 selection:text-white pb-10">
+
+  <!-- Всплывающее уведомление (вместо alert) -->
+  <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 -translate-y-2 transition-all duration-300 max-w-[92vw] w-max">
+    <div id="toastContent" class="bg-slate-800/95 backdrop-blur-md border border-slate-700 text-slate-100 px-4 py-2.5 rounded-2xl shadow-2xl text-xs sm:text-sm font-medium flex items-center gap-2">
+      <span id="toastDot" class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+      <span id="toastText">Курсы обновлены</span>
+    </div>
+  </div>
+
+  <!-- Основной контейнер мобильного приложения -->
+  <main class="max-w-md mx-auto px-3.5 pt-4 space-y-4">
+
+    <!-- 1. Шапка и статус актуальности -->
+    <header class="flex items-center justify-between bg-slate-900/90 border border-slate-800/90 rounded-2xl px-4 py-3 shadow-lg">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center shadow-md shadow-indigo-500/20 font-mono font-bold text-lg text-white">
+          ¥₴
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white leading-tight">JPY ⇄ UAH</h1>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <p id="statusText" class="text-xs text-slate-400">Загрузка курсов...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Кнопка обновления -->
+      <button
+        id="refreshBtn"
+        type="button"
+        title="Обновить курсы"
+        class="tap-card flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium shadow-sm"
+      >
+        <svg id="refreshIcon" class="w-4 h-4 text-indigo-400 transition-transform duration-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span>Обновить</span>
+      </button>
+    </header>
+
+    <!-- 2. Двусторонний калькулятор -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-xl space-y-3 relative overflow-hidden">
+      <!-- Декоративное свечение -->
+      <div class=" -top-20 -right-20 w-44 h-44 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none absolute"></div>
+
+      <!-- Поле ввода: Японская иена (JPY) -->
+      <div id="jpyBox" class="bg-slate-950/90 border border-slate-800 focus-within:border-indigo-500/80 rounded-2xl p-3.5 transition-colors">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+          <span class="font-medium flex items-center gap-1.5">
+            <span class="text-base leading-none">🇯🇵</span> Японская иена
+          </span>
+          <span class="font-mono text-indigo-400 font-semibold">JPY (¥)</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-2xl font-bold text-slate-500 select-none">¥</span>
+          <input
+            id="jpyInput"
+            type="text"
+            inputmode="decimal"
+            placeholder="1000"
+            value="1000"
+            autocomplete="off"
+            class="w-full bg-transparent font-mono text-2xl sm:text-3xl font-bold text-white focus:outline-none placeholder-slate-700"
+          />
+          <button
+            id="clearJpyBtn"
+            type="button"
+            aria-label="Очистить"
+            class="p-2 text-slate-500 hover:text-slate-300 active:scale-90 transition"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Промежуточная сумма в USD (Visa) -->
+      <div class="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 rounded-2xl px-3.5 py-2.5">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-mono text-xs font-bold">
+            $
+          </div>
+          <div>
+            <div class="text-[11px] text-slate-400 leading-tight">Промежуточная сумма (Visa)</div>
+            <div id="directionHint" class="text-[10px] text-slate-500 font-mono">JPY → USD → UAH</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <span id="usdIntermediate" class="font-mono text-base sm:text-lg font-bold text-indigo-300">$0.00</span>
+          <span class="text-xs font-mono text-slate-500 ml-0.5">USD</span>
+        </div>
+      </div>
+
+      <!-- Поле ввода: Украинская гривна (UAH) -->
+      <div id="uahBox" class="bg-slate-950/90 border border-slate-800 focus-within:border-emerald-500/80 rounded-2xl p-3.5 transition-colors">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+          <span class="font-medium flex items-center gap-1.5">
+            <span class="text-base leading-none">🇺🇦</span> Списание Monobank
+          </span>
+          <span class="font-mono text-emerald-400 font-semibold">UAH (₴)</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-2xl font-bold text-slate-500 select-none">₴</span>
+          <input
+            id="uahInput"
+            type="text"
+            inputmode="decimal"
+            placeholder="0.00"
+            autocomplete="off"
+            class="w-full bg-transparent font-mono text-2xl sm:text-3xl font-bold text-emerald-400 focus:outline-none placeholder-slate-700"
+          />
+          <button
+            id="clearUahBtn"
+            type="button"
+            aria-label="Очистить"
+            class="p-2 text-slate-500 hover:text-slate-300 active:scale-90 transition"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Фиксированная памятка для текущих курсов -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-sm font-bold text-white tracking-tight">Памятка по суммам</h2>
+          <p class="text-[11px] text-slate-400">Нажми на любую строку для подстановки в калькулятор</p>
+        </div>
+        <span class="text-[11px] font-mono bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+          ¥ → $ → ₴
+        </span>
+      </div>
+
+      <div id="cheatSheetList" class="divide-y divide-slate-800/80">
+        <!-- Заполняется автоматически через JS для 100, 500, 1000, 5000, 10000 ¥ -->
+      </div>
+    </section>
+
+    <!-- 4. Детализация актуальных курсов валют -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-xl space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white tracking-tight">Актуальные курсы валют</h2>
+        <span id="ratesTimestamp" class="text-[11px] font-mono text-slate-400">—</span>
+      </div>
+
+      <!-- Итоговый кросс-курс -->
+      <div class="bg-gradient-to-r from-indigo-950/60 to-emerald-950/50 border border-indigo-500/30 rounded-2xl p-3.5 flex items-center justify-between">
+        <div>
+          <div class="text-xs text-indigo-200 font-medium">Итоговый кросс-курс</div>
+          <div id="reverseCrossRate" class="text-[11px] text-slate-400 font-mono mt-0.5">1 ₴ = — ¥</div>
+        </div>
+        <div class="text-right">
+          <div id="effectiveRate100" class="font-mono text-lg font-bold text-emerald-400">100 ¥ = — ₴</div>
+          <div id="effectiveRate1" class="text-[11px] font-mono text-slate-400">1 ¥ = — ₴</div>
+        </div>
+      </div>
+
+      <!-- Карточки Visa и Monobank -->
+      <div class="grid grid-cols-2 gap-2.5">
+        <!-- Visa JPY/USD -->
+        <div class="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-indigo-400">Visa FX</span>
+            <span id="visaDateBadge" class="text-[10px] font-mono text-slate-500">USD/JPY</span>
+          </div>
+          <div id="visaUsdToJpy" class="font-mono text-sm sm:text-base font-bold text-white">1 $ = — ¥</div>
+          <div id="visaJpyToUsd" class="font-mono text-[11px] text-slate-400 mt-0.5">1 ¥ = $—</div>
+        </div>
+
+        <!-- Monobank USD/UAH -->
+        <div class="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">Monobank</span>
+            <span class="text-[10px] font-mono text-slate-500">USD/UAH</span>
+          </div>
+          <div id="monoSellRate" class="font-mono text-sm sm:text-base font-bold text-white">1 $ = — ₴</div>
+          <div id="monoBuyRate" class="font-mono text-[11px] text-slate-400 mt-0.5">Покупка: — ₴</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    /**
+     * Конфигурация API и ключей локального кэша
+     */
+    const VISA_WORKER_URL = 'https://visa-fx-proxy.zverkrisa.workers.dev/';
+    const MONO_API_URL = 'https://api.monobank.ua/bank/currency';
+
+    const STORAGE_KEYS = {
+      MONO_CACHE: 'jpy_uah_mono_cache_v1',
+      VISA_CACHE: 'jpy_uah_visa_cache_v1',
+      LAST_KNOWN: 'jpy_uah_last_known_v1'
+    };
+
+    const MONO_TTL_MS = 5 * 60 * 1000;      // 5 минут (лимит API Monobank)
+    const VISA_TTL_MS = 60 * 60 * 1000;     // 1 час (курс Visa обновляется раз в сутки)
+    const CHEAT_SHEET_AMOUNTS = [100, 500, 1000, 5000, 10000];
+
+    /**
+     * Текущее состояние приложения
+     */
+    const state = {
+      jpyToUsd: null,      // Сколько USD дают за 1 JPY (например, 0.006684)
+      usdToJpy: null,      // Сколько JPY дают за 1 USD (например, 149.61)
+      visaDate: null,      // Дата курса Visa
+      monoSell: null,      // Курс продажи USD в Monobank (по которому списывается гривна)
+      monoBuy: null,       // Курс покупки USD в Monobank (справочно)
+      updatedAt: null,     // Время последнего успешного обновления
+      activeField: 'jpy',  // Какое поле сейчас редактирует пользователь ('jpy' | 'uah')
+      isFetching: false
+    };
+
+    /**
+     * Ссылки на DOM-элементы
+     */
+    const els = {
+      statusDot: document.getElementById('statusDot'),
+      statusText: document.getElementById('statusText'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      refreshIcon: document.getElementById('refreshIcon'),
+      jpyInput: document.getElementById('jpyInput'),
+      uahInput: document.getElementById('uahInput'),
+      clearJpyBtn: document.getElementById('clearJpyBtn'),
+      clearUahBtn: document.getElementById('clearUahBtn'),
+      usdIntermediate: document.getElementById('usdIntermediate'),
+      directionHint: document.getElementById('directionHint'),
+      cheatSheetList: document.getElementById('cheatSheetList'),
+      ratesTimestamp: document.getElementById('ratesTimestamp'),
+      effectiveRate100: document.getElementById('effectiveRate100'),
+      effectiveRate1: document.getElementById('effectiveRate1'),
+      reverseCrossRate: document.getElementById('reverseCrossRate'),
+      visaUsdToJpy: document.getElementById('visaUsdToJpy'),
+      visaJpyToUsd: document.getElementById('visaJpyToUsd'),
+      visaDateBadge: document.getElementById('visaDateBadge'),
+      monoSellRate: document.getElementById('monoSellRate'),
+      monoBuyRate: document.getElementById('monoBuyRate'),
+      toast: document.getElementById('toast'),
+      toastDot: document.getElementById('toastDot'),
+      toastText: document.getElementById('toastText')
+    };
+
+    let toastTimeout = null;
+
+    /**
+     * Показывает ненавязчивое уведомление в верхней части экрана
+     */
+    function showToast(message, type = 'success') {
+      clearTimeout(toastTimeout);
+      els.toastText.textContent = message;
+
+      const dotColors = {
+        success: 'bg-emerald-400',
+        warning: 'bg-amber-400',
+        error: 'bg-rose-500',
+        info: 'bg-indigo-400'
+      };
+      els.toastDot.className = `w-2 h-2 rounded-full shrink-0 ${dotColors[type] || dotColors.info}`;
+
+      els.toast.classList.remove('opacity-0', '-translate-y-2');
+      els.toast.classList.add('opacity-100', 'translate-y-0');
+
+      toastTimeout = setTimeout(() => {
+        els.toast.classList.remove('opacity-100', 'translate-y-0');
+        els.toast.classList.add('opacity-0', '-translate-y-2');
+      }, 2800);
+    }
+
+    /**
+     * Форматирование даты в MM/DD/YYYY (UTC) для запроса к Visa
+     */
+    function formatVisaUtcDate(offsetDays = 0) {
+      const target = new Date(Date.now() - offsetDays * 86400000);
+      const mm = String(target.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(target.getUTCDate()).padStart(2, '0');
+      const yyyy = target.getUTCFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    }
+
+    /**
+     * Универсальный разбор курса из JSON-ответа Visa
+     */
+    function parseVisaRatePayload(data) {
+      if (!data) return null;
+      const orig = data.originalValues || data;
+      const rawRateStr = orig.fxRateVisa || orig.fxRateWithAdditionalFee || orig.conversionRate;
+      const rawRate = parseFloat(rawRateStr);
+
+      if (!rawRate || isNaN(rawRate) || rawRate <= 0) {
+        return null;
+      }
+
+      // Защита от направления пары:
+      // 1 USD всегда равен ~100..200 JPY, а 1 JPY равен ~0.005..0.01 USD
+      let jpyToUsd, usdToJpy;
+      if (rawRate < 1) {
+        jpyToUsd = rawRate;
+        usdToJpy = 1 / rawRate;
+      } else {
+        usdToJpy = rawRate;
+        jpyToUsd = 1 / rawRate;
+      }
+
+      return {
+        jpyToUsd,
+        usdToJpy,
+        asOfDate: orig.asOfDate || null
+      };
+    }
+
+    /**
+     * Запрос курса JPY <-> USD через Cloudflare Worker пользователя.
+     * Учитывает разницу часовых поясов серверов Visa (пробует сегодня UTC, затем вчера UTC).
+     */
+    async function fetchVisaRate(forceRefresh = false) {
+      if (!forceRefresh) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.VISA_CACHE));
+          if (cached && Date.now() - cached.timestamp < VISA_TTL_MS) {
+            return cached.data;
+          }
+        } catch (e) {
+          console.warn('Ошибка чтения кэша Visa:', e);
+        }
+      }
+
+      // Пробуем текущую дату UTC, а если в США ещё предыдущий день — вчерашнюю дату
+      for (const offsetDays of [0, 1, 2]) {
+        const dateStr = formatVisaUtcDate(offsetDays);
+        const query = `?amount=1000&fee=0&utcConvertedDate=${encodeURIComponent(dateStr)}&exchangedate=${encodeURIComponent(dateStr)}&fromCurr=USD&toCurr=JPY`;
+        try {
+          const response = await fetch(`${VISA_WORKER_URL}${query}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          });
+
+          if (response.ok) {
+            const json = await response.json();
+            const parsed = parseVisaRatePayload(json);
+            if (parsed) {
+              parsed.dateStr = dateStr;
+              localStorage.setItem(STORAGE_KEYS.VISA_CACHE, JSON.stringify({
+                timestamp: Date.now(),
+                data: parsed
+              }));
+              return parsed;
+            }
+          }
+        } catch (err) {
+          console.warn(`Попытка запроса к воркеру Visa (смещение ${offsetDays} дн.) не удалась:`, err);
+        }
+      }
+
+      // Дополнительная попытка без параметров (так как воркер умеет сам подставлять параметры)
+      const fallbackRes = await fetch(VISA_WORKER_URL);
+      if (fallbackRes.ok) {
+        const json = await fallbackRes.json();
+        const parsed = parseVisaRatePayload(json);
+        if (parsed) {
+          localStorage.setItem(STORAGE_KEYS.VISA_CACHE, JSON.stringify({
+            timestamp: Date.now(),
+            data: parsed
+          }));
+          return parsed;
+        }
+      }
+
+      throw new Error('Не удалось получить курс от воркера Visa');
+    }
+
+    /**
+     * Запрос курса USD <-> UAH у публичного API Monobank.
+     * С защитой от ошибки 429 Too Many Requests (кэш 5 минут).
+     */
+    async function fetchMonoRate(forceRefresh = false) {
+      let cachedObj = null;
+      try {
+        cachedObj = JSON.parse(localStorage.getItem(STORAGE_KEYS.MONO_CACHE));
+      } catch (e) {
+        console.warn('Ошибка чтения кэша Monobank:', e);
+      }
+
+      // Если кэш свежий (< 5 минут), возвращаем его, чтобы Monobank не заблокировал запрос (HTTP 429)
+      if (cachedObj && Date.now() - cachedObj.timestamp < MONO_TTL_MS) {
+        // Если нажали кнопку вручную, но прошло больше 65 секунд — пробуем обновить
+        const ageSec = (Date.now() - cachedObj.timestamp) / 1000;
+        if (!forceRefresh || ageSec < 65) {
+          return cachedObj.data;
+        }
+      }
+
+      try {
+        const response = await fetch(MONO_API_URL, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.status === 429 && cachedObj) {
+          // Если лимит превышен, тихо отдаём кэшированный курс
+          return cachedObj.data;
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const list = await response.json();
+        // Ищем пару USD (840) -> UAH (980)
+        const usdUah = Array.isArray(list)
+          ? list.find(item => item.currencyCodeA === 840 && item.currencyCodeB === 980)
+          : null;
+
+        if (!usdUah || !usdUah.rateSell) {
+          throw new Error('Пара USD/UAH не найдена в ответе Monobank');
+        }
+
+        const data = {
+          rateSell: parseFloat(usdUah.rateSell),
+          rateBuy: parseFloat(usdUah.rateBuy || usdUah.rateSell),
+          date: usdUah.date ? usdUah.date * 1000 : Date.now()
+        };
+
+        localStorage.setItem(STORAGE_KEYS.MONO_CACHE, JSON.stringify({
+          timestamp: Date.now(),
+          data
+        }));
+
+        return data;
+      } catch (err) {
+        if (cachedObj && cachedObj.data) {
+          return cachedObj.data;
+        }
+        throw err;
+      }
+    }
+
+    /**
+     * Загружает последние сохранённые курсы из localStorage для мгновенного старта офлайн
+     */
+    function loadLastKnownState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.LAST_KNOWN));
+        if (saved && saved.jpyToUsd && saved.monoSell) {
+          state.jpyToUsd = saved.jpyToUsd;
+          state.usdToJpy = saved.usdToJpy;
+          state.visaDate = saved.visaDate;
+          state.monoSell = saved.monoSell;
+          state.monoBuy = saved.monoBuy;
+          state.updatedAt = saved.updatedAt;
+          return true;
+        }
+      } catch (e) {
+        console.warn('Нет сохранённых курсов в localStorage:', e);
+      }
+      return false;
+    }
+
+    /**
+     * Сохраняет успешный снимок обоих курсов в localStorage
+     */
+    function saveLastKnownState() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.LAST_KNOWN, JSON.stringify({
+          jpyToUsd: state.jpyToUsd,
+          usdToJpy: state.usdToJpy,
+          visaDate: state.visaDate,
+          monoSell: state.monoSell,
+          monoBuy: state.monoBuy,
+          updatedAt: state.updatedAt
+        }));
+      } catch (e) {
+        console.warn('Не удалось сохранить курсы:', e);
+      }
+    }
+
+    /**
+     * Форматирование чисел для аккуратного вывода
+     */
+    function formatNum(num, decimals = 2) {
+      if (num === null || num === undefined || isNaN(num)) return '—';
+      return Number(num).toLocaleString('ru-RU', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    /**
+     * Очистка и парсинг пользовательского ввода (поддержка точки и запятой)
+     */
+    function parseInputNumber(rawValue) {
+      if (!rawValue) return 0;
+      const cleaned = String(rawValue)
+        .replace(/\s+/g, '')
+        .replace(',', '.')
+        .replace(/[^0-9.]/g, '');
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+
+    /**
+     * Пересчёт значений в двустороннем калькуляторе
+     */
+    function recalculate(source = state.activeField) {
+      if (!state.jpyToUsd || !state.monoSell) return;
+
+      const jpyToUahRate = state.jpyToUsd * state.monoSell;
+
+      if (source === 'jpy') {
+        const jpyVal = parseInputNumber(els.jpyInput.value);
+        if (els.jpyInput.value.trim() === '') {
+          els.uahInput.value = '';
+          els.usdIntermediate.textContent = '$0.00';
+          return;
+        }
+        const usdVal = jpyVal * state.jpyToUsd;
+        const uahVal = usdVal * state.monoSell;
+
+        els.usdIntermediate.textContent = `$${usdVal.toFixed(2)}`;
+        els.directionHint.textContent = 'JPY → Visa ($) → Mono (₴)';
+        els.uahInput.value = uahVal > 0 ? uahVal.toFixed(2) : '0.00';
+      } else {
+        const uahVal = parseInputNumber(els.uahInput.value);
+        if (els.uahInput.value.trim() === '') {
+          els.jpyInput.value = '';
+          els.usdIntermediate.textContent = '$0.00';
+          return;
+        }
+        const usdVal = uahVal / state.monoSell;
+        const jpyVal = uahVal / jpyToUahRate;
+
+        els.usdIntermediate.textContent = `$${usdVal.toFixed(2)}`;
+        els.directionHint.textContent = 'UAH → Mono ($) → Visa (¥)';
+        els.jpyInput.value = jpyVal > 0 ? Math.round(jpyVal).toString() : '0';
+      }
+
+      highlightMatchingCheatRow();
+    }
+
+    /**
+     * Отрисовка фиксированной памятки для 100, 500, 1 000, 5 000 и 10 000 ¥
+     */
+    function renderCheatSheet() {
+      if (!state.jpyToUsd || !state.monoSell) {
+        els.cheatSheetList.innerHTML = `
+          <div class="py-6 text-center text-xs text-slate-500">
+            Ожидание загрузки курсов...
+          </div>
+        `;
+        return;
+      }
+
+      const currentJpy = Math.round(parseInputNumber(els.jpyInput.value));
+
+      els.cheatSheetList.innerHTML = CHEAT_SHEET_AMOUNTS.map(jpy => {
+        const usd = jpy * state.jpyToUsd;
+        const uah = usd * state.monoSell;
+        const isSelected = currentJpy === jpy;
+
+        return `
+          <button
+            type="button"
+            data-jpy="${jpy}"
+            class="cheat-row tap-card w-full py-2.5 px-3 flex items-center justify-between text-left rounded-xl transition ${
+              isSelected
+                ? 'bg-indigo-500/15 border border-indigo-500/40'
+                : 'hover:bg-slate-800/50 border border-transparent'
+            }"
+          >
+            <div class="flex items-center gap-2.5">
+              <span class="font-mono text-sm sm:text-base font-bold ${isSelected ? 'text-indigo-300' : 'text-white'}">
+                ${jpy.toLocaleString('ru-RU')} ¥
+              </span>
+              <span class="font-mono text-xs text-slate-400 bg-slate-950/80 px-2 py-0.5 rounded-md border border-slate-800">
+                $${usd.toFixed(2)}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-sm sm:text-base font-bold text-emerald-400">
+                ${formatNum(uah, 2)} ₴
+              </span>
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      // Привязываем обработчик нажатия на каждую строку памятки
+      els.cheatSheetList.querySelectorAll('.cheat-row').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const amount = btn.getAttribute('data-jpy');
+          state.activeField = 'jpy';
+          els.jpyInput.value = amount;
+          recalculate('jpy');
+          showToast(`Подставлено ${Number(amount).toLocaleString('ru-RU')} ¥`, 'info');
+        });
+      });
+    }
+
+    /**
+     * Подсветка активной строки в памятке, если сумма совпадает с полем ввода
+     */
+    function highlightMatchingCheatRow() {
+      const currentJpy = Math.round(parseInputNumber(els.jpyInput.value));
+      els.cheatSheetList.querySelectorAll('.cheat-row').forEach(btn => {
+        const rowJpy = Number(btn.getAttribute('data-jpy'));
+        const label = btn.querySelector('span');
+        if (rowJpy === currentJpy) {
+          btn.classList.add('bg-indigo-500/15', 'border-indigo-500/40');
+          btn.classList.remove('border-transparent');
+          if (label) {
+            label.classList.add('text-indigo-300');
+            label.classList.remove('text-white');
+          }
+        } else {
+          btn.classList.remove('bg-indigo-500/15', 'border-indigo-500/40');
+          btn.classList.add('border-transparent');
+          if (label) {
+            label.classList.remove('text-indigo-300');
+            label.classList.add('text-white');
+          }
+        }
+      });
+    }
+
+    /**
+     * Обновление карточек курсов и статусной строки
+     */
+    function updateRatesUI(isCachedFallback = false) {
+      if (!state.jpyToUsd || !state.monoSell) return;
+
+      const jpy1InUah = state.jpyToUsd * state.monoSell;
+      const jpy100InUah = jpy1InUah * 100;
+      const uah1InJpy = 1 / jpy1InUah;
+
+      // Итоговый кросс-курс
+      els.effectiveRate100.textContent = `100 ¥ = ${formatNum(jpy100InUah, 2)} ₴`;
+      els.effectiveRate1.textContent = `1 ¥ = ${formatNum(jpy1InUah, 4)} ₴`;
+      els.reverseCrossRate.textContent = `1 ₴ = ${formatNum(uah1InJpy, 2)} ¥`;
+
+      // Карточка Visa
+      els.visaUsdToJpy.textContent = `1 $ = ${formatNum(state.usdToJpy, 2)} ¥`;
+      els.visaJpyToUsd.textContent = `1 ¥ = $${state.jpyToUsd.toFixed(6)}`;
+      if (state.visaDate) {
+        els.visaDateBadge.textContent = state.visaDate;
+      }
+
+      // Карточка Monobank
+      els.monoSellRate.textContent = `1 $ = ${formatNum(state.monoSell, 2)} ₴`;
+      els.monoBuyRate.textContent = `Покупка: ${formatNum(state.monoBuy, 2)} ₴`;
+
+      // Время последнего обновления
+      if (state.updatedAt) {
+        const timeStr = new Date(state.updatedAt).toLocaleTimeString('ru-RU', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        els.ratesTimestamp.textContent = `Обновлено в ${timeStr}`;
+
+        if (isCachedFallback) {
+          els.statusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+          els.statusText.textContent = `Из памяти (${timeStr})`;
+        } else {
+          els.statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+          els.statusText.textContent = `Актуально • ${timeStr}`;
+        }
+      }
+
+      renderCheatSheet();
+      recalculate(state.activeField);
+    }
+
+    /**
+     * Главная функция загрузки обоих курсов (Visa + Monobank)
+     */
+    async function syncAllRates(forceRefresh = false) {
+      if (state.isFetching) return;
+      state.isFetching = true;
+
+      els.refreshIcon.classList.add('animate-spin');
+      els.statusDot.className = 'w-2 h-2 rounded-full bg-indigo-400 animate-pulse';
+      els.statusText.textContent = 'Синхронизация с Visa и Mono...';
+
+      try {
+        const [visaData, monoData] = await Promise.all([
+          fetchVisaRate(forceRefresh),
+          fetchMonoRate(forceRefresh)
+        ]);
+
+        state.jpyToUsd = visaData.jpyToUsd;
+        state.usdToJpy = visaData.usdToJpy;
+        state.visaDate = visaData.dateStr || 'USD/JPY';
+        state.monoSell = monoData.rateSell;
+        state.monoBuy = monoData.rateBuy;
+        state.updatedAt = Date.now();
+
+        saveLastKnownState();
+        updateRatesUI(false);
+
+        if (forceRefresh) {
+          showToast('Курсы Visa и Monobank обновлены', 'success');
+        }
+      } catch (err) {
+        console.error('Ошибка синхронизации курсов:', err);
+        const hasFallback = loadLastKnownState();
+        if (hasFallback) {
+          updateRatesUI(true);
+          showToast('Сеть недоступна, используются сохранённые курсы', 'warning');
+        } else {
+          els.statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+          els.statusText.textContent = 'Ошибка сети — проверь подключение';
+          showToast('Не удалось загрузить курсы валют', 'error');
+        }
+      } finally {
+        state.isFetching = false;
+        els.refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    /**
+     * Инициализация событий интерфейса
+     */
+    function initEvents() {
+      // Ввод суммы в иенах (JPY -> USD -> UAH)
+      els.jpyInput.addEventListener('input', () => {
+        state.activeField = 'jpy';
+        recalculate('jpy');
+      });
+
+      // Ввод суммы в гривнах (UAH -> USD -> JPY)
+      els.uahInput.addEventListener('input', () => {
+        state.activeField = 'uah';
+        recalculate('uah');
+      });
+
+      // Кнопки быстрой очистки полей
+      els.clearJpyBtn.addEventListener('click', () => {
+        state.activeField = 'jpy';
+        els.jpyInput.value = '';
+        els.uahInput.value = '';
+        els.usdIntermediate.textContent = '$0.00';
+        highlightMatchingCheatRow();
+        els.jpyInput.focus();
+      });
+
+      els.clearUahBtn.addEventListener('click', () => {
+        state.activeField = 'uah';
+        els.uahInput.value = '';
+        els.jpyInput.value = '';
+        els.usdIntermediate.textContent = '$0.00';
+        highlightMatchingCheatRow();
+        els.uahInput.focus();
+      });
+
+      // Ручное обновление курсов
+      els.refreshBtn.addEventListener('click', () => {
+        syncAllRates(true);
+      });
+    }
+
+    // Запуск при загрузке страницы
+    window.addEventListener('DOMContentLoaded', () => {
+      initEvents();
+
+      // Сначала мгновенно показываем последние известные курсы из памяти (если уже открывали ранее)
+      if (loadLastKnownState()) {
+        updateRatesUI(true);
+      }
+
+      // Затем запрашиваем свежие данные у воркера Visa и API Monobank
+      syncAllRates(false);
+    });
+  </script>
+</body>
+</html>
