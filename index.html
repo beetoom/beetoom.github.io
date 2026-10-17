@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Калькулятор JPY ⇄ UAH</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-bg: rgba(56, 189, 248, 0.12);
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --red: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px 14px 32px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Шапка та статус */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 2px;
+    }
+
+    .title-group h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--amber);
+      flex-shrink: 0;
+    }
+
+    .status-dot.ok { background-color: var(--green); }
+    .status-dot.err { background-color: var(--red); }
+
+    .refresh-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .refresh-btn:active {
+      transform: scale(0.96);
+      background: var(--card-hover);
+    }
+
+    .refresh-btn:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* Картки */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Поля вводу калькулятора */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 0 14px;
+      transition: border-color 0.15s;
+    }
+
+    .input-wrapper:focus-within {
+      border-color: var(--accent);
+    }
+
+    .currency-symbol {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-right: 10px;
+      user-select: none;
+    }
+
+    .currency-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 1.5rem;
+      font-weight: 700;
+      padding: 12px 0;
+      outline: none;
+    }
+
+    .currency-input::placeholder {
+      color: #475569;
+      font-weight: 500;
+    }
+
+    .clear-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      padding: 6px;
+      cursor: pointer;
+    }
+
+    /* Проміжний рядок USD */
+    .intermediate-box {
+      margin: 12px 0;
+      padding: 10px 12px;
+      background: var(--accent-bg);
+      border: 1px dashed rgba(56, 189, 248, 0.35);
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .intermediate-label {
+      color: var(--text-muted);
+    }
+
+    .intermediate-value {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Пам'ятка (Шпаргалка) */
+    .preset-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .preset-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preset-table th:last-child,
+    .preset-table td:last-child {
+      text-align: right;
+    }
+
+    .preset-table th:nth-child(2),
+    .preset-table td:nth-child(2) {
+      text-align: right;
+    }
+
+    .preset-row {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .preset-row:active,
+    .preset-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .preset-row td {
+      padding: 10px 4px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      font-size: 0.95rem;
+    }
+
+    .preset-row:last-child td {
+      border-bottom: none;
+      padding-bottom: 2px;
+    }
+
+    .preset-jpy {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .preset-usd {
+      color: var(--text-muted);
+      font-size: 0.86rem;
+    }
+
+    .preset-uah {
+      font-weight: 700;
+      color: var(--green);
+    }
+
+    /* Блок актуальних курсів */
+    .rates-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rate-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+    }
+
+    .rate-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .rate-name {
+      color: var(--text-muted);
+    }
+
+    .rate-val {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .rate-highlight {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .error-banner {
+      display: none;
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      color: #fca5a5;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Шапка -->
+    <header class="header">
+      <div class="title-group">
+        <h1>JPY ⇄ UAH Калькулятор</h1>
+        <div class="status-line">
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">Завантаження курсів...</span>
+        </div>
+      </div>
+      <button id="refreshBtn" class="refresh-btn" type="button" title="Оновити курси">
+        ↻ Оновити
+      </button>
+    </header>
+
+    <div id="errorBanner" class="error-banner"></div>
+
+    <!-- Двосторонній калькулятор -->
+    <section class="card">
+      <div class="input-group">
+        <div class="input-label">
+          <span>Японська єна (JPY)</span>
+          <span>Валюта покупки</span>
+        </div>
+        <div class="input-wrapper">
+          <span class="currency-symbol">¥</span>
+          <input id="jpyInput" class="currency-input" type="text" inputmode="decimal" placeholder="1000" autocomplete="off">
+          <button id="clearBtn" class="clear-btn" type="button" aria-label="Очистити">✕</button>
+        </div>
+      </div>
+
+      <!-- Проміжна сума в доларах -->
+      <div class="intermediate-box">
+        <span class="intermediate-label">Проміжна сума (Visa USD):</span>
+        <span id="usdOutput" class="intermediate-value">$0.00</span>
+      </div>
+
+      <div class="input-group">
+        <div class="input-label">
+          <span>Українська гривня (UAH)</span>
+          <span>Списання з картки</span>
+        </div>
+        <div class="input-wrapper">
+          <span class="currency-symbol">₴</span>
+          <input id="uahInput" class="currency-input" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+        </div>
+      </div>
+    </section>
+
+    <!-- Фіксована пам'ятка -->
+    <section class="card">
+      <div class="card-title">
+        <span>Пам'ятка поточних курсів</span>
+        <span style="font-size: 0.7rem; text-transform: none; font-weight: 400;">натисніть для підстановки</span>
+      </div>
+      <table class="preset-table">
+        <thead>
+          <tr>
+            <th>Сума в єнах</th>
+            <th>У доларах (Visa)</th>
+            <th>У гривнях (Mono)</th>
+          </tr>
+        </thead>
+        <tbody id="presetBody">
+          <!-- Генерується автоматично -->
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Деталі актуальних курсів -->
+    <section class="card">
+      <div class="card-title">
+        <span>Актуальні курси валют</span>
+      </div>
+      <div class="rates-grid">
+        <div class="rate-row">
+          <span class="rate-name">Ефективний курс (100 ¥ → UAH)</span>
+          <span id="rateEffective100" class="rate-val rate-highlight">—</span>
+        </div>
+        <div class="rate-row">
+          <span class="rate-name">Курс Visa (1 USD → JPY)</span>
+          <span id="rateVisaUsdJpy" class="rate-val">—</span>
+        </div>
+        <div class="rate-row">
+          <span class="rate-name">Курс Visa (1 JPY → USD)</span>
+          <span id="rateVisaJpyUsd" class="rate-val">—</span>
+        </div>
+        <div class="rate-row">
+          <span class="rate-name">Monobank продаж (USD → UAH)</span>
+          <span id="rateMonoSell" class="rate-val">—</span>
+        </div>
+        <div class="rate-row">
+          <span class="rate-name">Monobank купівля (USD → UAH)</span>
+          <span id="rateMonoBuy" class="rate-val" style="color: var(--text-muted);">—</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // URL твого Cloudflare Worker
+    const VISA_WORKER_URL = 'https://visa-fx-proxy.zverkrisa.workers.dev/';
+    const MONO_API_URL = 'https://api.monobank.ua/bank/currency';
+
+    // Ключі та час життя кешу в localStorage
+    const CACHE_KEY = 'jpy_uah_calc_state_v1';
+    const MONO_COOLDOWN_MS = 5 * 60 * 1000; // 5 хвилин (ліміт Monobank API)
+    const VISA_COOLDOWN_MS = 60 * 60 * 1000; // 1 година для курсу Visa
+
+    // Фіксовані суми для пам'ятки
+    const PRESET_AMOUNTS = [100, 500, 1000, 5000, 10000];
+
+    // Поточний стан курсів
+    let state = {
+      jpyToUsd: null, // скільки USD за 1 JPY
+      usdToJpy: null, // скільки JPY за 1 USD
+      monoSell: null, // курс продажу USD в Monobank
+      monoBuy: null,
+      visaUpdatedAt: 0,
+      monoUpdatedAt: 0
+    };
+
+    // Елементи DOM
+    const jpyInput = document.getElementById('jpyInput');
+    const uahInput = document.getElementById('uahInput');
+    const usdOutput = document.getElementById('usdOutput');
+    const clearBtn = document.getElementById('clearBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const presetBody = document.getElementById('presetBody');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const errorBanner = document.getElementById('errorBanner');
+
+    const rateEffective100El = document.getElementById('rateEffective100');
+    const rateVisaUsdJpyEl = document.getElementById('rateVisaUsdJpy');
+    const rateVisaJpyUsdEl = document.getElementById('rateVisaJpyUsd');
+    const rateMonoSellEl = document.getElementById('rateMonoSell');
+    const rateMonoBuyEl = document.getElementById('rateMonoBuy');
+
+    // Допоміжне форматування дати MM/DD/YYYY для запиту Visa
+    function formatVisaDate(dateObj) {
+      const mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(dateObj.getUTCDate()).padStart(2, '0');
+      const yyyy = dateObj.getUTCFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    }
+
+    // Запит курсу Visa через твій Cloudflare Worker (з відкатом на вчорашню дату UTC за потреби)
+    async function fetchVisaRate() {
+      const datesToTry = [
+        new Date(),
+        new Date(Date.now() - 24 * 60 * 60 * 1000)
+      ];
+
+      let lastError = null;
+
+      for (const dateObj of datesToTry) {
+        const dateStr = formatVisaDate(dateObj);
+        const params = new URLSearchParams({
+          amount: '1000',
+          fee: '0',
+          utcConvertedDate: dateStr,
+          exchangedate: dateStr,
+          fromCurr: 'USD',
+          toCurr: 'JPY'
+        });
+
+        try {
+          const res = await fetch(`${VISA_WORKER_URL}?${params.toString()}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          const rawRate = parseFloat(
+            data?.originalValues?.fxRateVisa ||
+            data?.originalValues?.fxRateWithAdditionalFee ||
+            data?.conversionRate
+          );
+
+          if (!isNaN(rawRate) && rawRate > 0) {
+            // Нормалізація: 1 USD ~ 150 JPY (> 1), а 1 JPY ~ 0.0066 USD (< 1)
+            const jpyToUsd = rawRate > 1 ? (1 / rawRate) : rawRate;
+            const usdToJpy = rawRate > 1 ? rawRate : (1 / rawRate);
+            return { jpyToUsd, usdToJpy };
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw new Error(`Помилка отримання курсу Visa (${lastError?.message || 'невідома помилка'})`);
+    }
+
+    // Запит курсу USD -> UAH у Monobank
+    async function fetchMonoRate() {
+      const res = await fetch(MONO_API_URL);
+      if (res.status === 429) {
+        throw new Error('Забагато запитів до Monobank (ліміт раз на 5 хв). Використано кеш.');
+      }
+      if (!res.ok) {
+        throw new Error(`Помилка Monobank API: HTTP ${res.status}`);
+      }
+
+      const list = await res.json();
+      const usdUah = list.find(item => item.currencyCodeA === 840 && item.currencyCodeB === 980);
+
+      if (!usdUah || !usdUah.rateSell) {
+        throw new Error('Пара USD/UAH не знайдена у відповіді Monobank');
+      }
+
+      return {
+        sell: parseFloat(usdUah.rateSell),
+        buy: parseFloat(usdUah.rateBuy || usdUah.rateSell)
+      };
+    }
+
+    // Завантаження збереженого кешу з localStorage
+    function loadCache() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state = { ...state, ...parsed };
+        }
+      } catch (e) {
+        console.warn('Не вдалося прочитати кеш:', e);
+      }
+    }
+
+    // Збереження в localStorage
+    function saveCache() {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Не вдалося зберегти кеш:', e);
+      }
+    }
+
+    // Основна функція оновлення курсів
+    async function updateRates(force = false) {
+      loadCache();
+      const now = Date.now();
+      errorBanner.style.display = 'none';
+      refreshBtn.disabled = true;
+
+      // Якщо в кеші вже є курси — одразу малюємо інтерфейс без очікування мережі
+      if (state.jpyToUsd && state.monoSell) {
+        renderRatesAndPresets();
+        recalcFromJpy();
+      }
+
+      const needVisa = force || !state.jpyToUsd || (now - state.visaUpdatedAt > VISA_COOLDOWN_MS);
+      // Для Monobank дотримуємося інтервалу 60 сек навіть при натисканні "Оновити", щоб не зловити бан 429
+      const monoMinInterval = force ? 60 * 1000 : MONO_COOLDOWN_MS;
+      const needMono = !state.monoSell || (now - state.monoUpdatedAt > monoMinInterval);
+
+      if (!needVisa && !needMono) {
+        updateStatusUI(true, 'Дані актуальні (з кешу)');
+        refreshBtn.disabled = false;
+        return;
+      }
+
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'Оновлення курсів...';
+
+      const errors = [];
+
+      // Запит Visa
+      if (needVisa) {
+        try {
+          const visa = await fetchVisaRate();
+          state.jpyToUsd = visa.jpyToUsd;
+          state.usdToJpy = visa.usdToJpy;
+          state.visaUpdatedAt = Date.now();
+        } catch (err) {
+          errors.push(err.message);
+        }
+      }
+
+      // Запит Monobank
+      if (needMono) {
+        try {
+          const mono = await fetchMonoRate();
+          state.monoSell = mono.sell;
+          state.monoBuy = mono.buy;
+          state.monoUpdatedAt = Date.now();
+        } catch (err) {
+          errors.push(err.message);
+        }
+      }
+
+      saveCache();
+      renderRatesAndPresets();
+
+      // Перерахунок активного поля
+      if (document.activeElement === uahInput && uahInput.value) {
+        recalcFromUah();
+      } else {
+        recalcFromJpy();
+      }
+
+      if (errors.length > 0) {
+        errorBanner.textContent = errors.join(' • ');
+        errorBanner.style.display = 'block';
+        updateStatusUI(Boolean(state.jpyToUsd && state.monoSell), 'Працює з кешованими даними');
+      } else {
+        updateStatusUI(true);
+      }
+
+      refreshBtn.disabled = false;
+    }
+
+    function updateStatusUI(isOk, customMessage = null) {
+      if (!state.jpyToUsd || !state.monoSell) {
+        statusDot.className = 'status-dot err';
+        statusText.textContent = 'Курси не завантажено';
+        return;
+      }
+
+      statusDot.className = 'status-dot ok';
+      const lastTime = Math.max(state.monoUpdatedAt, state.visaUpdatedAt);
+      const timeStr = new Date(lastTime).toLocaleTimeString('uk-UA', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      statusText.textContent = customMessage ? `${customMessage} (${timeStr})` : `Оновлено о ${timeStr}`;
+    }
+
+    // Відображення курсів та таблиці-пам'ятки
+    function renderRatesAndPresets() {
+      if (!state.jpyToUsd || !state.monoSell) return;
+
+      const effective100Jpy = 100 * state.jpyToUsd * state.monoSell;
+
+      rateEffective100El.textContent = `${effective100Jpy.toFixed(2)} ₴`;
+      rateVisaUsdJpyEl.textContent = `${state.usdToJpy.toFixed(2)} ¥`;
+      rateVisaJpyUsdEl.textContent = `$${state.jpyToUsd.toFixed(6)}`;
+      rateMonoSellEl.textContent = `${state.monoSell.toFixed(2)} ₴`;
+      rateMonoBuyEl.textContent = `${state.monoBuy.toFixed(2)} ₴`;
+
+      // Заповнення пам'ятки
+      presetBody.innerHTML = '';
+      PRESET_AMOUNTS.forEach(amountJpy => {
+        const usd = amountJpy * state.jpyToUsd;
+        const uah = usd * state.monoSell;
+
+        const tr = document.createElement('tr');
+        tr.className = 'preset-row';
+        tr.innerHTML = `
+          <td class="preset-jpy">${amountJpy.toLocaleString('uk-UA')} ¥</td>
+          <td class="preset-usd">$${usd.toFixed(2)}</td>
+          <td class="preset-uah">${uah.toFixed(2)} ₴</td>
+        `;
+
+        tr.addEventListener('click', () => {
+          jpyInput.value = amountJpy;
+          recalcFromJpy();
+        });
+
+        presetBody.appendChild(tr);
+      });
+    }
+
+    // Нормалізація введеного числа (заміна коми на крапку)
+    function parseInputNumber(val) {
+      if (!val) return NaN;
+      const cleaned = val.toString().replace(/\s+/g, '').replace(',', '.');
+      return parseFloat(cleaned);
+    }
+
+    // Прямий розрахунок: JPY -> USD -> UAH
+    function recalcFromJpy() {
+      if (!state.jpyToUsd || !state.monoSell) return;
+      const jpy = parseInputNumber(jpyInput.value);
+
+      if (isNaN(jpy) || jpy < 0) {
+        usdOutput.textContent = '$0.00';
+        if (document.activeElement === jpyInput) uahInput.value = '';
+        return;
+      }
+
+      const usd = jpy * state.jpyToUsd;
+      const uah = usd * state.monoSell;
+
+      usdOutput.textContent = `$${usd.toFixed(2)}`;
+      uahInput.value = uah.toFixed(2);
+    }
+
+    // Зворотний розрахунок: UAH -> USD -> JPY
+    function recalcFromUah() {
+      if (!state.jpyToUsd || !state.monoSell) return;
+      const uah = parseInputNumber(uahInput.value);
+
+      if (isNaN(uah) || uah < 0) {
+        usdOutput.textContent = '$0.00';
+        if (document.activeElement === uahInput) jpyInput.value = '';
+        return;
+      }
+
+      const usd = uah / state.monoSell;
+      const jpy = usd / state.jpyToUsd;
+
+      usdOutput.textContent = `$${usd.toFixed(2)}`;
+      jpyInput.value = Math.round(jpy);
+    }
+
+    // Слухачі подій
+    jpyInput.addEventListener('input', recalcFromJpy);
+    uahInput.addEventListener('input', recalcFromUah);
+
+    clearBtn.addEventListener('click', () => {
+      jpyInput.value = '';
+      uahInput.value = '';
+      usdOutput.textContent = '$0.00';
+      jpyInput.focus();
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      updateRates(true);
+    });
+
+    // Початкове значення за замовчуванням (1000 ¥) та запуск
+    jpyInput.value = '1000';
+    updateRates(false);
+  </script>
+</body>
+</html>
